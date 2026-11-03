@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Coworking Booking API
-  version: 1.0.1
-  description: 'API бронирования комнат коворкингов. Роли: user, admin.'
+  version: 1.0.2
+  description: 'API бронирования комнат коворкингов. Роли: user, admin. Стандартные HTTP-ошибки используют HTTP-статус в error.code; специфические ошибки приложения — собственные числовые коды.'
 servers:
   - url: /api/v1
 tags:
@@ -21,6 +21,7 @@ x-business-rules:
   - Неактивные rooms нельзя бронировать; GET списка rooms возвращает только активные.
   - page по умолчанию 1; per_page по умолчанию 20, максимум 100.
   - Подтверждать можно только pending; отменять — pending или confirmed; прочие переходы возвращают 409.
+  - 'Ошибки: стандартные HTTP-ошибки используют HTTP-статус в error.code; специфические ошибки приложения — коды из x-error-codes. Все ошибки возвращаются в формате ErrorResponse.'
 security: []
 paths:
   /register:
@@ -849,8 +850,8 @@ components:
             code:
               type: integer
               format: int32
-              description: Числовой код ошибки приложения, независимый от HTTP-статуса.
-              example: 3001
+              description: Для стандартных HTTP-ошибок — HTTP-статус (например, 404); для специфических ошибок приложения — отдельный числовой код (например, 1005 или 3001).
+              example: 404
             message:
               type: string
               example: Room is not available for the selected period
@@ -947,108 +948,121 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 1000
+              code: 400
               message: Bad Request
               details: {}
     '401':
-      description: '401'
+      description: 'Unauthorized'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 1001
+              code: 401
               message: Unauthorized
               details: {}
     '403':
-      description: '403'
+      description: 'Forbidden'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 1002
+              code: 403
               message: Forbidden
               details: {}
     '404':
-      description: '404'
+      description: 'Not Found'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 2001
+              code: 404
               message: Not Found
               details: {}
-    '409':
-      description: '409'
+    '405':
+      description: Method Not Allowed
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 1007
+              code: 405
+              message: Method Not Allowed
+              details: {}
+    '409':
+      description: 'Conflict'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 409
               message: Conflict
               details: {}
     '422':
-      description: '422'
+      description: 'Unprocessable Content'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 1003
+              code: 422
               message: Unprocessable Content
               details: {}
     '429':
-      description: '429'
+      description: 'Too Many Requests'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 1006
+              code: 429
               message: Too Many Requests
               details: {}
     '500':
-      description: '500'
+      description: 'Internal Server Error'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: 9000
+              code: 500
               message: Internal Server Error
               details: {}
 x-error-codes:
+  '400':
+    400: HTTP_BAD_REQUEST
   '401':
-    1001: UNAUTHENTICATED
+    401: HTTP_UNAUTHORIZED
     1004: INVALID_CREDENTIALS
   '403':
-    1002: FORBIDDEN
+    403: HTTP_FORBIDDEN
   '404':
-    2001: RESOURCE_NOT_FOUND
+    404: HTTP_NOT_FOUND
+  '405':
+    405: HTTP_METHOD_NOT_ALLOWED
   '409':
+    409: HTTP_CONFLICT
     1005: EMAIL_ALREADY_EXISTS
     3001: ROOM_NOT_AVAILABLE
     2003: ROOM_INACTIVE
     3002: BOOKING_ALREADY_CANCELLED
     3003: INVALID_BOOKING_STATUS
     2002: RESOURCE_HAS_DEPENDENCIES
-    1007: CONFLICT
   '422':
-    1003: VALIDATION_FAILED
+    422: HTTP_UNPROCESSABLE_CONTENT
     3004: INVALID_BOOKING_INTERVAL
   '429':
-    1006: RATE_LIMIT_EXCEEDED
+    429: HTTP_TOO_MANY_REQUESTS
   '500':
-    9000: INTERNAL_ERROR
-  '400':
-    1000: BAD_REQUEST
+    500: HTTP_INTERNAL_SERVER_ERROR

@@ -38,17 +38,17 @@ return new class extends Migration
             CHECK (status IN ('pending', 'confirmed', 'cancelled'))
         ");
 
-        DB::statement("
+        DB::statement('
             ALTER TABLE bookings
             ADD CONSTRAINT bookings_interval_check
             CHECK (ends_at > starts_at)
-        ");
+        ');
 
-        DB::statement("
+        DB::statement('
             ALTER TABLE bookings
             ADD CONSTRAINT bookings_price_check
             CHECK (total_price_minor >= 0)
-        ");
+        ');
 
         DB::statement('CREATE EXTENSION IF NOT EXISTS btree_gist');
 
