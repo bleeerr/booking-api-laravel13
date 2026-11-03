@@ -1,0 +1,1054 @@
+openapi: 3.1.0
+info:
+  title: Coworking Booking API
+  version: 1.0.1
+  description: 'API бронирования комнат коворкингов. Роли: user, admin.'
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+  - name: Workspaces
+  - name: Rooms
+  - name: Bookings
+x-business-rules:
+  - 'Авторизация: Laravel Sanctum Bearer token; регистрация не выдаёт токен и всегда создаёт роль user.'
+  - Администратор имеет все пользовательские права; управление workspaces и rooms — только admin.
+  - POST /bookings создаёт pending; подтверждение — только admin через POST /bookings/{bookingId}/confirm.
+  - pending и confirmed блокируют интервалы; cancelled не блокирует. Пересечения запрещены PostgreSQL constraint.
+  - 'Время: RFC 3339 с offset; хранение timestamptz, интервалы [starts_at, ends_at), ends_at > starts_at.'
+  - 'Цена рассчитывается сервером: ceil(price_per_hour_minor * duration_seconds / 3600); валюта берётся из room.'
+  - Удаление workspace с rooms или room с bookings возвращает 409 (код приложения 2002).
+  - Неактивные rooms нельзя бронировать; GET списка rooms возвращает только активные.
+  - page по умолчанию 1; per_page по умолчанию 20, максимум 100.
+  - Подтверждать можно только pending; отменять — pending или confirmed; прочие переходы возвращают 409.
+security: []
+paths:
+  /register:
+    post:
+      tags:
+        - Auth
+      summary: Регистрация пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '409':
+          $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
+        '429':
+          $ref: '#/components/responses/429'
+        default:
+          $ref: '#/components/responses/500'
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: Вход и выдача bearer-токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '422':
+          $ref: '#/components/responses/422'
+        '429':
+          $ref: '#/components/responses/429'
+        default:
+          $ref: '#/components/responses/500'
+  /logout:
+    post:
+      tags:
+        - Auth
+      summary: Отозвать текущий токен
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Токен отозван
+        '401':
+          $ref: '#/components/responses/401'
+        default:
+          $ref: '#/components/responses/500'
+  /me:
+    get:
+      tags:
+        - Auth
+      summary: Текущий пользователь
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        default:
+          $ref: '#/components/responses/500'
+  /workspaces:
+    get:
+      tags:
+        - Workspaces
+      summary: Список коворкингов
+      parameters: &id005
+        - &id002
+          name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - &id003
+          name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceListResponse'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+    post:
+      tags:
+        - Workspaces
+      summary: Создать коворкинг
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '409':
+          $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+  /workspaces/{workspaceId}:
+    get:
+      tags:
+        - Workspaces
+      summary: Детали коворкинга
+      parameters:
+        - &id001
+          name: workspaceId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '404':
+          $ref: '#/components/responses/404'
+        default:
+          $ref: '#/components/responses/500'
+    patch:
+      tags:
+        - Workspaces
+      summary: Изменить коворкинг
+      security:
+        - bearerAuth: []
+      parameters:
+        - *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePatch'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+    delete:
+      tags:
+        - Workspaces
+      summary: Удалить коворкинг
+      security:
+        - bearerAuth: []
+      parameters:
+        - *id001
+      responses:
+        '204':
+          description: Удалён
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        default:
+          $ref: '#/components/responses/500'
+  /workspaces/{workspaceId}/rooms:
+    get:
+      tags:
+        - Rooms
+      summary: Список комнат коворкинга
+      parameters:
+        - *id001
+        - *id002
+        - *id003
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomListResponse'
+        '404':
+          $ref: '#/components/responses/404'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+    post:
+      tags:
+        - Rooms
+      summary: Создать комнату
+      security:
+        - bearerAuth: []
+      parameters:
+        - *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+  /rooms/{roomId}:
+    patch:
+      tags:
+        - Rooms
+      summary: Обновить комнату
+      security:
+        - bearerAuth: []
+      parameters:
+        - &id004
+          name: roomId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomPatch'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+    delete:
+      tags:
+        - Rooms
+      summary: Удалить комнату
+      security:
+        - bearerAuth: []
+      parameters:
+        - *id004
+      responses:
+        '204':
+          description: Удалена
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        default:
+          $ref: '#/components/responses/500'
+  /rooms/{roomId}/availability:
+    get:
+      tags:
+        - Rooms
+      summary: Доступность комнаты в заданный интервал
+      parameters:
+        - *id004
+        - name: starts_at
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/DateTime'
+        - name: ends_at
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/DateTime'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResultResponse'
+        '404':
+          $ref: '#/components/responses/404'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+  /bookings:
+    post:
+      tags:
+        - Bookings
+      summary: Создать бронирование
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+    get:
+      tags:
+        - Bookings
+      summary: Мои бронирования
+      security:
+        - bearerAuth: []
+      parameters: *id005
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingListResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+  /bookings/{bookingId}:
+    get:
+      tags:
+        - Bookings
+      summary: Детали бронирования
+      security:
+        - bearerAuth: []
+      parameters:
+        - &id006
+          name: bookingId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        default:
+          $ref: '#/components/responses/500'
+  /bookings/{bookingId}/cancel:
+    post:
+      tags:
+        - Bookings
+      summary: Отменить бронирование
+      security:
+        - bearerAuth: []
+      parameters:
+        - *id006
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        default:
+          $ref: '#/components/responses/500'
+  /bookings/{bookingId}/confirm:
+    post:
+      tags:
+        - Bookings
+      summary: Подтвердить бронирование (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '404':
+          $ref: '#/components/responses/404'
+        '409':
+          $ref: '#/components/responses/409'
+        default:
+          $ref: '#/components/responses/500'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque token
+  schemas:
+    UserRole:
+      type: string
+      enum:
+        - user
+        - admin
+    BookingStatus:
+      type: string
+      enum:
+        - pending
+        - confirmed
+        - cancelled
+    Id:
+      type: integer
+      format: int64
+      minimum: 1
+    MoneyMinor:
+      type: integer
+      format: int64
+      minimum: 0
+    CurrencyCode:
+      type: string
+      minLength: 3
+      maxLength: 3
+      pattern: ^[A-Z]{3}$
+    DateTime:
+      type: string
+      format: date-time
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - role
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        role:
+          $ref: '#/components/schemas/UserRole'
+    Workspace:
+      type: object
+      required:
+        - id
+        - name
+        - timezone
+        - address
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          maxLength: 150
+        timezone:
+          type: string
+          maxLength: 64
+          example: Europe/Vilnius
+        address:
+          type: string
+          maxLength: 500
+    Room:
+      type: object
+      required:
+        - id
+        - workspace_id
+        - name
+        - description
+        - capacity
+        - price_per_hour_minor
+        - currency_code
+        - is_active
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        workspace_id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type:
+            - string
+            - 'null'
+        capacity:
+          type: integer
+          minimum: 1
+        price_per_hour_minor:
+          $ref: '#/components/schemas/MoneyMinor'
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        is_active:
+          type: boolean
+    Booking:
+      type: object
+      required:
+        - id
+        - user_id
+        - room_id
+        - status
+        - starts_at
+        - ends_at
+        - total_price_minor
+        - currency_code
+        - cancelled_at
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        user_id:
+          $ref: '#/components/schemas/Id'
+        room_id:
+          $ref: '#/components/schemas/Id'
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        starts_at:
+          $ref: '#/components/schemas/DateTime'
+        ends_at:
+          $ref: '#/components/schemas/DateTime'
+        total_price_minor:
+          $ref: '#/components/schemas/MoneyMinor'
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        cancelled_at:
+          oneOf:
+            - $ref: '#/components/schemas/DateTime'
+            - type: 'null'
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - password_confirmation
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 255
+        password_confirmation:
+          type: string
+          format: password
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    Token:
+      type: object
+      required:
+        - token
+        - token_type
+      properties:
+        token:
+          type: string
+        token_type:
+          type: string
+          const: Bearer
+    WorkspaceInput:
+      type: object
+      required:
+        - name
+        - timezone
+        - address
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        timezone:
+          type: string
+          maxLength: 64
+        address:
+          type: string
+          maxLength: 500
+    WorkspacePatch:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        timezone:
+          type: string
+          maxLength: 64
+        address:
+          type: string
+          maxLength: 500
+    RoomInput:
+      type: object
+      required:
+        - name
+        - capacity
+        - price_per_hour_minor
+        - currency_code
+        - is_active
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type:
+            - string
+            - 'null'
+        capacity:
+          type: integer
+          minimum: 1
+        price_per_hour_minor:
+          $ref: '#/components/schemas/MoneyMinor'
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        is_active:
+          type: boolean
+    RoomPatch:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type:
+            - string
+            - 'null'
+        capacity:
+          type: integer
+          minimum: 1
+        price_per_hour_minor:
+          $ref: '#/components/schemas/MoneyMinor'
+        currency_code:
+          $ref: '#/components/schemas/CurrencyCode'
+        is_active:
+          type: boolean
+    BookingCreate:
+      type: object
+      required:
+        - room_id
+        - starts_at
+        - ends_at
+      properties:
+        room_id:
+          $ref: '#/components/schemas/Id'
+        starts_at:
+          $ref: '#/components/schemas/DateTime'
+        ends_at:
+          $ref: '#/components/schemas/DateTime'
+    AvailabilityResult:
+      type: object
+      required:
+        - room_id
+        - starts_at
+        - ends_at
+        - available
+      properties:
+        room_id:
+          $ref: '#/components/schemas/Id'
+        starts_at:
+          $ref: '#/components/schemas/DateTime'
+        ends_at:
+          $ref: '#/components/schemas/DateTime'
+        available:
+          type: boolean
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - per_page
+        - total
+        - last_page
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        last_page:
+          type: integer
+          minimum: 1
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - details
+          properties:
+            code:
+              type: integer
+              format: int32
+              description: Числовой код ошибки приложения, независимый от HTTP-статуса.
+              example: 3001
+            message:
+              type: string
+              example: Room is not available for the selected period
+            details:
+              type: object
+              additionalProperties: true
+              example: {}
+          additionalProperties: false
+      additionalProperties: false
+    WorkspaceListResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    RoomListResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    BookingListResponse:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+    UserResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+    WorkspaceResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Workspace'
+    RoomResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Room'
+    BookingResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Booking'
+    TokenResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Token'
+    AvailabilityResultResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/AvailabilityResult'
+  responses:
+    '400':
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 1000
+              message: Bad Request
+              details: {}
+    '401':
+      description: '401'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 1001
+              message: Unauthorized
+              details: {}
+    '403':
+      description: '403'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 1002
+              message: Forbidden
+              details: {}
+    '404':
+      description: '404'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 2001
+              message: Not Found
+              details: {}
+    '409':
+      description: '409'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 1007
+              message: Conflict
+              details: {}
+    '422':
+      description: '422'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 1003
+              message: Unprocessable Content
+              details: {}
+    '429':
+      description: '429'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 1006
+              message: Too Many Requests
+              details: {}
+    '500':
+      description: '500'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: 9000
+              message: Internal Server Error
+              details: {}
+x-error-codes:
+  '401':
+    1001: UNAUTHENTICATED
+    1004: INVALID_CREDENTIALS
+  '403':
+    1002: FORBIDDEN
+  '404':
+    2001: RESOURCE_NOT_FOUND
+  '409':
+    1005: EMAIL_ALREADY_EXISTS
+    3001: ROOM_NOT_AVAILABLE
+    2003: ROOM_INACTIVE
+    3002: BOOKING_ALREADY_CANCELLED
+    3003: INVALID_BOOKING_STATUS
+    2002: RESOURCE_HAS_DEPENDENCIES
+    1007: CONFLICT
+  '422':
+    1003: VALIDATION_FAILED
+    3004: INVALID_BOOKING_INTERVAL
+  '429':
+    1006: RATE_LIMIT_EXCEEDED
+  '500':
+    9000: INTERNAL_ERROR
+  '400':
+    1000: BAD_REQUEST
