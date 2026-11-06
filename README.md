@@ -1,58 +1,197 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Coworking Booking API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+RESTful API для управления коворкингами, переговорными комнатами и их бронированием. Демонстрационный backend-проект на PHP 8.4 и Laravel 13 с акцентом на проектирование API, бизнес-правила, целостность данных, тестирование и контейнеризацию.
 
-## About Laravel
+## Возможности
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+**Пользователь (`user`):**
+- регистрация, вход, выход и просмотр профиля;
+- просмотр коворкингов и комнат;
+- проверка доступности комнаты на выбранный интервал;
+- создание, просмотр и отмена собственных бронирований.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**Администратор (`admin`):**
+- все возможности обычного пользователя;
+- создание, обновление и удаление коворкингов и комнат;
+- подтверждение бронирований.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+**Ключевые бизнес-правила (по API-контракту):**
+- новая бронь получает статус `pending`; администратор может подтвердить её (`confirmed`), допустимые бронирования можно отменять (`cancelled`);
+- брони в статусах `pending` и `confirmed` не должны пересекаться по времени в одной комнате; защита запланирована на уровне PostgreSQL;
+- стоимость рассчитывается сервером, денежные значения хранятся в минимальных единицах валюты;
+- неактивные комнаты недоступны для бронирования.
 
-## Learning Laravel
+## Технологический стек
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+| Компонент | Технологии |
+| --- | --- |
+| Backend | PHP 8.4 (PHP-FPM), Laravel 13 |
+| База данных | PostgreSQL 17 |
+| Redis | Redis 7 (сервис в Docker Compose) |
+| Веб-сервер | Nginx |
+| Аутентификация | Laravel Sanctum |
+| Контейнеризация | Docker, Docker Compose |
+| Тестирование | PHPUnit 12 |
+| Статический анализ | PHPStan + Larastan |
+| Стиль кода | Laravel Pint |
+| API-контракт | OpenAPI 3.1 / Swagger Editor |
+| CI | GitHub Actions (анализ, стиль, тесты) |
+| Отладка | Xdebug (в образе разработки) |
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Документация
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- [OpenAPI-спецификация](./docs/openapi.yaml) — маршруты, форматы запросов и ответов, роли и ошибки.
+- [Схема БД и ER-диаграмма](./docs/database-schema.md) — таблицы, связи и ограничения.
+- [Swagger Editor](https://editor.swagger.io/) — просмотр спецификации: **File → Import File** и выбрать `docs/openapi.yaml`.
 
-## Agentic Development
+Контракт предусматривает префикс `/api/v1`. Отдельный встроенный Swagger UI в проверенной конфигурации репозитория не обнаружен.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Локальный запуск
+
+### Требования
+
+- Git;
+- Docker Engine + Docker Compose plugin либо Docker Desktop;
+- для Windows — Docker Desktop с WSL 2 (рекомендуется запускать команды из WSL).
+
+### 1. Получить проект
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/bleeerr/booking-api-laravel13.git
+cd booking-api-laravel13
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Настроить окружение
 
-## Contributing
+```bash
+cp .env.example .env
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+В `.env` задать следующие значения (пароль выберите самостоятельно):
 
-## Code of Conduct
+```dotenv
+APP_URL=http://localhost:8080
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_PORT=5432
+DB_DATABASE=booking_api
+DB_USERNAME=booking_api
+DB_PASSWORD=change_this_password
 
-## Security Vulnerabilities
+REDIS_CLIENT=phpredis
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Важно:** в текущем `.env.example` по умолчанию указан SQLite (`DB_CONNECTION=sqlite`). Для Docker Compose с PostgreSQL необходимо заменить параметры, как показано выше. Значения `DB_DATABASE`, `DB_USERNAME` и `DB_PASSWORD` передаются контейнеру PostgreSQL из `.env`.
 
-## License
+### 3. Собрать и запустить контейнеры
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Из корня репозитория (Compose-файл — `compose.yaml`):
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+Сервисы: `app` (PHP-FPM), `nginx`, `postgres`, `redis`. Образ `app` собирается из `docker/php/Dockerfile`.
+
+### 4. Установить зависимости и подготовить приложение
+
+```bash
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate
+```
+
+Если `composer install` сообщает об ошибках прав доступа к файлам, проверьте права каталога проекта и параметры `LOCAL_UID` / `LOCAL_GID` в `compose.yaml`.
+
+### 5. Проверить запуск
+
+- HTTP: **http://localhost:8080**
+- Маршруты API: **http://localhost:8080/api/v1**
+- Список зарегистрированных маршрутов:
+
+```bash
+docker compose exec app php artisan route:list --path=api
+```
+
+Nginx опубликован только на `127.0.0.1:8080`; PostgreSQL — на `127.0.0.1:5433` (из контейнера приложения: `postgres:5432`). Redis не опубликован на хосте.
+
+**Остановить контейнеры:**
+
+```bash
+docker compose down
+```
+
+Данные PostgreSQL и Redis сохраняются в именованных Docker volumes. `docker compose down -v` удалит и их.
+
+## Развёртывание на Linux-сервере
+
+Существующий `compose.yaml` ориентирован на разработку: код подключён bind mount, Xdebug включён в PHP-образ, а Nginx слушает только `127.0.0.1:8080`. Это **не готовая production-конфигурация**. Для публичного сервера нужны отдельные настройки безопасности и развёртывания.
+
+1. Установите Docker Engine, Docker Compose и Git; клонируйте репозиторий.
+2. Создайте серверный `.env` и настройте PostgreSQL/Redis (аналогично локальному запуску), а также `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://your-domain.example`. Используйте сильные секреты, не коммитьте `.env`.
+3. Настройте HTTPS и обратный прокси, направляющий запросы на `127.0.0.1:8080`. Не открывайте PostgreSQL/Redis в публичную сеть.
+4. Соберите и запустите контейнеры:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+5. Для первого развёртывания установите зависимости и создайте постоянный ключ приложения:
+
+   ```bash
+   docker compose exec app composer install --no-dev --optimize-autoloader
+   docker compose exec app php artisan key:generate
+   docker compose exec app php artisan migrate --force
+   docker compose exec app php artisan config:cache
+   ```
+
+6. Проверьте логи, доступность API и TLS. Настройте резервные копии PostgreSQL.
+
+При **последующих** развёртываниях не запускайте `key:generate` повторно: сохраняйте исходный `APP_KEY`. Перед запуском миграций делайте резервную копию БД.
+
+Для полноценного production-развёртывания рекомендуется отдельный Compose override/образ без Xdebug и dev-bind-mount, управление секретами и настройка мониторинга. Такие файлы в проверенной конфигурации не подтверждены.
+
+## Тесты и проверка качества
+
+В `composer.json` предусмотрены команды:
+
+```bash
+docker compose exec app composer test
+docker compose exec app composer analyse
+docker compose exec app composer lint
+docker compose exec app composer check
+```
+
+`composer check` последовательно запускает статический анализ, проверку стиля и тесты. Конфигурация PHPStan/Larastan — `phpstan.neon.dist` (уровень 6). PHPUnit в `phpunit.xml` использует SQLite in-memory для тестов.
+
+В `.github/workflows/ci.yml` GitHub Actions запускает эти проверки на `push` и `pull_request` в `main` с PHP 8.4.
+
+## Структура основных файлов
+
+```text
+booking-api-laravel13/
+├── app/                       # Код Laravel-приложения
+├── database/                  # Миграции, фабрики, сидеры
+├── docker/
+│   ├── nginx/default.conf     # Конфигурация Nginx
+│   └── php/Dockerfile         # Образ PHP 8.4-FPM
+├── docs/
+│   ├── database-schema.md     # ER-диаграмма и схема БД
+│   └── openapi.yaml           # Контракт REST API
+├── routes/api.php             # API-маршруты
+├── .github/workflows/ci.yml   # CI
+├── compose.yaml               # Docker Compose
+└── composer.json              # Зависимости и команды проверки
+```
+
+## Статус реализации
+
+API-контракт описывает запланированную систему в целом. По текущему `routes/api.php` подтверждены маршруты `/api/v1/register`, `/api/v1/login`, `/api/v1/me`, `/api/v1/logout`. Остальные маршруты из OpenAPI нельзя считать реализованными только на основании спецификации.
+
+---
+
+[Репозиторий на GitHub](https://github.com/bleeerr/booking-api-laravel13)
