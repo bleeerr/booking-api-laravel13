@@ -15,7 +15,7 @@ use Illuminate\Support\Carbon;
  * @property int $user_id
  * @property int $room_id
  * @property BookingStatus $status
- * @property string $starts_at
+ * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
  * @property int $total_price_minor
  * @property string $currency_code

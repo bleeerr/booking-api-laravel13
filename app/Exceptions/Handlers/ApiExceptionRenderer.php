@@ -7,6 +7,7 @@ use App\Exceptions\ApiException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,6 +42,8 @@ final class ApiExceptionRenderer
                 $exception->getStatusCode(),
                 $exception->getHeaders(),
             ),
+
+            $exception instanceof QueryException => $this->renderBookingOverlap($exception) ?? $this->renderHttpError(500),
 
             default => $this->renderHttpError(500),
         };
@@ -90,5 +93,23 @@ final class ApiExceptionRenderer
                 'details' => $details ?: new stdClass,
             ],
         ], $status, $headers);
+    }
+
+    private function renderBookingOverlap(QueryException $exception): ?JsonResponse
+    {
+        if (($exception->errorInfo[0] ?? null) !== '23P01'
+            || ! str_contains(
+                $exception->getMessage(),
+                'bookings_no_overlap'
+            )
+        ) {
+            return null;
+        }
+
+        return $this->render(new ApiException(
+            errorCode: ApiErrorCode::RoomNotAvailable,
+            message: 'Room is not available for the selected period',
+            httpStatus: Response::HTTP_CONFLICT,
+        ));
     }
 }

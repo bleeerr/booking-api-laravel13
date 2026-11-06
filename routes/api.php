@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\RoomController;
 use App\Http\Controllers\Api\V1\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -32,4 +33,15 @@ Route::prefix('v1')->group(function (): void {
     Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])
         ->middleware('auth:sanctum');
     Route::get('/rooms/{room}/availability', [RoomController::class, 'availability']);
+
+    Route::get('/bookings', [BookingController::class, 'index'])
+        ->middleware('auth:sanctum');
+    Route::post('/bookings', [BookingController::class, 'store'])
+        ->middleware('auth:sanctum');
+    Route::get('/bookings/{booking}', [BookingController::class, 'show'])
+        ->middleware('auth:sanctum');
+    Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])
+        ->middleware('auth:sanctum');
+    Route::post('/bookings/{booking}/confirm', [BookingController::class, 'confirm'])
+        ->middleware('auth:sanctum');
 });
