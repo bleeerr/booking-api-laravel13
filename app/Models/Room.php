@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,12 +23,15 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Booking> $bookings
  * @property-read int|null $bookings_count
- * @property-read Warkspace $workspace
+ * @property-read Workspace $workspace
  *
  * @mixin \Eloquent
  */
 class Room extends Model
 {
+    /** @use HasFactory<RoomFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'workspace_id',
         'name',
@@ -47,11 +52,11 @@ class Room extends Model
     }
 
     /**
-     * @return BelongsTo<Warkspace, $this>
+     * @return BelongsTo<Workspace, $this>
      */
     public function workspace(): BelongsTo
     {
-        return $this->belongsTo(Warkspace::class);
+        return $this->belongsTo(Workspace::class);
     }
 
     /**

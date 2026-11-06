@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\BookingStatus;
 use Carbon\CarbonImmutable;
+use Database\Factories\BookingFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -27,6 +29,9 @@ use Illuminate\Support\Carbon;
  */
 class Booking extends Model
 {
+    /** @use HasFactory<BookingFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'room_id',
@@ -42,10 +47,10 @@ class Booking extends Model
     {
         return [
             'status' => BookingStatus::class,
-            'start_at' => 'immutable_datetime',
+            'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
-            'price_minor' => 'integer',
+            'total_price_minor' => 'integer',
         ];
     }
 
