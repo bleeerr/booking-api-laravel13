@@ -30,13 +30,13 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-      env:
-        DB_CONNECTION: pgsql
-        DB_HOST: 127.0.0.1
-        DB_PORT: 5432
-        DB_DATABASE: booking_api_test
-        DB_USERNAME: booking_user
-        DB_PASSWORD: ci_test_password
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: booking_api_test
+      DB_USERNAME: booking_user
+      DB_PASSWORD: ci_test_password
 
     steps:
       - name: Checkout source
