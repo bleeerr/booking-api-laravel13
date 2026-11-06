@@ -24,15 +24,15 @@ class AppServiceProvider extends ServiceProvider
     {
         RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(
-                (int) config('api.rate_limits.register.decay_minutes'),
-                (int) config('api.rate_limits.register.max_attempts'))
+                (int) config('api.rate_limits.register.max_attempts'),
+                (int) config('api.rate_limits.register.decay_minutes'))
                 ->by($request->ip());
         });
 
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(
-                (int) config('api.rate_limits.login.decay_minutes'),
-                (int) config('api.rate_limits.login.max_attempts'))
+                (int) config('api.rate_limits.login.max_attempts'),
+                (int) config('api.rate_limits.login.decay_minutes'))
                 ->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip());
         });
     }

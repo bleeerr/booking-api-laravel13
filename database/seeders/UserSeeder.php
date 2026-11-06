@@ -6,21 +6,37 @@ use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::factory()->create([
-            'name' => 'Demo Admin',
-            'email' => 'admin@example.com',
-            'password' => Hash::make('password'),
-            'role' => UserRole::Admin,
-        ]);
+        $this->createDemoUser('Demo Admin', 'admin@example.com', UserRole::Admin);
+        $this->createDemoUser('Demo User', 'user@example.com', UserRole::User);
 
         User::factory()
-            ->count(10)
+            ->count(9)
             ->demo()
             ->create();
+    }
+
+    private function createDemoUser(
+        string $name,
+        string $email,
+        UserRole $role,
+    ): void {
+        $password = Str::password(16);
+
+        User::factory()->create([
+            'name' => $name,
+            'email' => $email,
+            'password' => Hash::make($password),
+            'role' => $role,
+        ]);
+
+        $this->command?->info(
+            sprintf('%s | %s | %s', $role->value, $email, $password)
+        );
     }
 }

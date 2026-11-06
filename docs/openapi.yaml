@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Coworking Booking API
   version: 1.0.2
-  description: 'API бронирования комнат коворкингов. Роли: user, admin. Стандартные HTTP-ошибки используют HTTP-статус в error.code; специфические ошибки приложения — собственные числовые коды.'
+  description: 'API бронирования комнат коворкингов. Роли: user, admin.'
 servers:
   - url: /api/v1
 tags:
@@ -21,7 +21,6 @@ x-business-rules:
   - Неактивные rooms нельзя бронировать; GET списка rooms возвращает только активные.
   - page по умолчанию 1; per_page по умолчанию 20, максимум 100.
   - Подтверждать можно только pending; отменять — pending или confirmed; прочие переходы возвращают 409.
-  - 'Ошибки: стандартные HTTP-ошибки используют HTTP-статус в error.code; специфические ошибки приложения — коды из x-error-codes. Все ошибки возвращаются в формате ErrorResponse.'
 security: []
 paths:
   /register:
@@ -850,8 +849,8 @@ components:
             code:
               type: integer
               format: int32
-              description: Для стандартных HTTP-ошибок — HTTP-статус (например, 404); для специфических ошибок приложения — отдельный числовой код (например, 1005 или 3001).
-              example: 404
+              description: Для стандартных HTTP-ошибок совпадает с HTTP-статусом; для бизнес-ошибок используется отдельный код из x-error-codes.
+              example: 3001
             message:
               type: string
               example: Room is not available for the selected period
@@ -952,7 +951,7 @@ components:
               message: Bad Request
               details: {}
     '401':
-      description: 'Unauthorized'
+      description: '401'
       content:
         application/json:
           schema:
@@ -963,7 +962,7 @@ components:
               message: Unauthorized
               details: {}
     '403':
-      description: 'Forbidden'
+      description: '403'
       content:
         application/json:
           schema:
@@ -974,7 +973,7 @@ components:
               message: Forbidden
               details: {}
     '404':
-      description: 'Not Found'
+      description: '404'
       content:
         application/json:
           schema:
@@ -984,19 +983,8 @@ components:
               code: 404
               message: Not Found
               details: {}
-    '405':
-      description: Method Not Allowed
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error:
-              code: 405
-              message: Method Not Allowed
-              details: {}
     '409':
-      description: 'Conflict'
+      description: '409'
       content:
         application/json:
           schema:
@@ -1007,7 +995,7 @@ components:
               message: Conflict
               details: {}
     '422':
-      description: 'Unprocessable Content'
+      description: '422'
       content:
         application/json:
           schema:
@@ -1018,7 +1006,7 @@ components:
               message: Unprocessable Content
               details: {}
     '429':
-      description: 'Too Many Requests'
+      description: '429'
       content:
         application/json:
           schema:
@@ -1029,7 +1017,7 @@ components:
               message: Too Many Requests
               details: {}
     '500':
-      description: 'Internal Server Error'
+      description: '500'
       content:
         application/json:
           schema:
@@ -1039,20 +1027,12 @@ components:
               code: 500
               message: Internal Server Error
               details: {}
+# Стандартные HTTP-ошибки используют error.code, равный HTTP-статусу.
+# Ниже перечислены только коды ошибок бизнес-логики.
 x-error-codes:
-  '400':
-    400: HTTP_BAD_REQUEST
   '401':
-    401: HTTP_UNAUTHORIZED
     1004: INVALID_CREDENTIALS
-  '403':
-    403: HTTP_FORBIDDEN
-  '404':
-    404: HTTP_NOT_FOUND
-  '405':
-    405: HTTP_METHOD_NOT_ALLOWED
-  '409':
-    409: HTTP_CONFLICT
+'409':
     1005: EMAIL_ALREADY_EXISTS
     3001: ROOM_NOT_AVAILABLE
     2003: ROOM_INACTIVE
@@ -1060,9 +1040,4 @@ x-error-codes:
     3003: INVALID_BOOKING_STATUS
     2002: RESOURCE_HAS_DEPENDENCIES
   '422':
-    422: HTTP_UNPROCESSABLE_CONTENT
     3004: INVALID_BOOKING_INTERVAL
-  '429':
-    429: HTTP_TOO_MANY_REQUESTS
-  '500':
-    500: HTTP_INTERNAL_SERVER_ERROR
