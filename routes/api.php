@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\RoomController;
 use App\Http\Controllers\Api\V1\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,4 +23,13 @@ Route::prefix('v1')->group(function (): void {
         ->middleware('auth:sanctum');
     Route::delete('/workspaces/{workspace}', [WorkspaceController::class, 'destroy'])
         ->middleware('auth:sanctum');
+
+    Route::get('/workspaces/{workspace}/rooms', [RoomController::class, 'index']);
+    Route::post('/workspaces/{workspace}/rooms', [RoomController::class, 'store'])
+        ->middleware('auth:sanctum');
+    Route::patch('/rooms/{room}', [RoomController::class, 'update'])
+        ->middleware('auth:sanctum');
+    Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])
+        ->middleware('auth:sanctum');
+    Route::get('/rooms/{room}/availability', [RoomController::class, 'availability']);
 });
