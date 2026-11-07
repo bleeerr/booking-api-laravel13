@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class UserSeeder extends Seeder
 {
@@ -35,8 +36,11 @@ class UserSeeder extends Seeder
             'role' => $role,
         ]);
 
-        $this->command?->info(
-            sprintf('%s | %s | %s', $role->value, $email, $password)
+        // Raw output prevents generated characters such as < and > from being
+        // interpreted as Symfony Console markup (e.g. stray </info>).
+        $this->command?->getOutput()->writeln(
+            sprintf('%s | %s | %s', $role->value, $email, $password),
+            OutputInterface::OUTPUT_RAW,
         );
     }
 }
