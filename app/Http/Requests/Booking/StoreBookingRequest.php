@@ -16,7 +16,7 @@ class StoreBookingRequest extends FormRequest
      */
     public function rules(): array
     {
-        $rfc3339 = 'regex:/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/';
+        $rfc3339 = 'regex:/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/';
 
         return [
             'room_id' => ['required', 'integer', 'min:1'],

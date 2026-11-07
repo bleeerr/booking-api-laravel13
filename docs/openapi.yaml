@@ -15,7 +15,7 @@ x-business-rules:
   - Администратор имеет все пользовательские права; управление workspaces и rooms — только admin.
   - POST /bookings создаёт pending; подтверждение — только admin через POST /bookings/{bookingId}/confirm.
   - pending и confirmed блокируют интервалы; cancelled не блокирует. Пересечения запрещены PostgreSQL constraint.
-  - 'Время: RFC 3339 с offset; хранение timestamptz, интервалы [starts_at, ends_at), ends_at > starts_at.'
+  - 'Время: RFC 3339 с обязательным offset, точность до секунды (без дробной части); хранение timestamptz, интервалы [starts_at, ends_at), ends_at > starts_at.'
   - 'Цена рассчитывается сервером: ceil(price_per_hour_minor * duration_seconds / 3600); валюта берётся из room.'
   - Удаление workspace с rooms или room с bookings возвращает 409 (код приложения 2002).
   - Неактивные rooms нельзя бронировать; GET списка rooms возвращает только активные.
@@ -586,6 +586,9 @@ components:
     DateTime:
       type: string
       format: date-time
+      description: RFC 3339 с обязательным UTC offset, без дробных секунд.
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$'
+      example: '2030-01-01T10:00:00+02:00'
     User:
       type: object
       required:
