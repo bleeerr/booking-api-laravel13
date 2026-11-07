@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AdminBookingController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\RoomController;
@@ -33,6 +34,9 @@ Route::prefix('v1')->group(function (): void {
     Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])
         ->middleware('auth:sanctum');
     Route::get('/rooms/{room}/availability', [RoomController::class, 'availability']);
+
+    Route::get('/admin/bookings', [AdminBookingController::class, 'index'])
+        ->middleware('auth:sanctum');
 
     Route::get('/bookings', [BookingController::class, 'index'])
         ->middleware('auth:sanctum');

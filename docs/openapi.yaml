@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Coworking Booking API
-  version: 1.0.2
+  version: 1.0.3
   description: 'API бронирования комнат коворкингов. Роли: user, admin.'
 servers:
   - url: /api/v1
@@ -21,6 +21,7 @@ x-business-rules:
   - Неактивные rooms нельзя бронировать; GET списка rooms возвращает только активные.
   - page по умолчанию 1; per_page по умолчанию 20, максимум 100.
   - Подтверждать можно только pending; отменять — pending или confirmed; прочие переходы возвращают 409.
+  - GET /admin/bookings доступен только admin и возвращает все бронирования; GET /bookings остаётся списком своих бронирований.
 security: []
 paths:
   /register:
@@ -386,6 +387,30 @@ paths:
                 $ref: '#/components/schemas/AvailabilityResultResponse'
         '404':
           $ref: '#/components/responses/404'
+        '422':
+          $ref: '#/components/responses/422'
+        default:
+          $ref: '#/components/responses/500'
+  /admin/bookings:
+    get:
+      tags:
+        - Bookings
+      summary: Список всех бронирований (только admin)
+      description: Возвращает бронирования всех пользователей в порядке убывания ID.
+      security:
+        - bearerAuth: []
+      parameters: *id005
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingListResponse'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
         '422':
           $ref: '#/components/responses/422'
         default:
@@ -1032,7 +1057,7 @@ components:
 x-error-codes:
   '401':
     1004: INVALID_CREDENTIALS
-'409':
+  '409':
     1005: EMAIL_ALREADY_EXISTS
     3001: ROOM_NOT_AVAILABLE
     2003: ROOM_INACTIVE
