@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ApiErrorCode;
 use App\Enums\UserRole;
+use App\Events\UserRegistered;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
@@ -25,6 +26,8 @@ class AuthController extends Controller
         $user = new User($data);
         $user->role = UserRole::User;
         $user->save();
+
+        UserRegistered::dispatch($user);
 
         return (new UserResource($user))
             ->response()
