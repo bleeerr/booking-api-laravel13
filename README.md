@@ -127,6 +127,162 @@ docker compose down
 
 Данные PostgreSQL и Redis сохраняются в именованных Docker volumes. `docker compose down -v` удалит и их.
 
+## Email-уведомления и очереди
+
+Приложение автоматически уведомляет пользователей об изменениях бронирований.
+
+### Архитектура
+
+Для отправки уведомлений используются стандартные механизмы Laravel:
+
+- **Events** — бизнес-события бронирования.
+- **Listeners** — обработчики событий.
+- **Mailables** — формирование email-сообщений.
+- **Redis Queue** — асинхронная обработка.
+- **Queue Worker** — отдельный Docker-сервис для фоновых задач.
+
+Процесс обработки:
+
+```text
+BookingController
+    ↓
+Domain Event
+    ↓
+Queued Listener (after commit)
+    ↓
+Redis Queue: emails
+    ↓
+Queue Worker
+    ↓
+BookingStatusMail
+    ↓
+Log / SMTP
+```
+
+### События
+
+| Событие | Listener | Назначение |
+|---|---|---|
+| `BookingCreated` | `SendBookingCreatedEmail` | Уведомление о создании бронирования |
+| `BookingConfirmed` | `SendBookingConfirmedEmail` | Уведомление о подтверждении |
+| `BookingCancelled` | `SendBookingCancelledEmail` | Уведомление об отмене |
+
+Уведомления отправляются на email владельца бронирования.
+
+Слушатели используют `ShouldQueueAfterCommit`, чтобы задачи отправки не попадали в очередь до успешного завершения транзакции.
+
+### Локальная настройка
+
+По умолчанию для разработки используется файловое логирование писем:
+
+```dotenv
+QUEUE_CONNECTION=redis
+REDIS_HOST=redis
+REDIS_QUEUE=emails
+
+MAIL_MAILER=log
+MAIL_LOG_CHANNEL=mail
+```
+
+В этом режиме письма не отправляются реальным получателям, а сохраняются в:
+
+```text
+storage/logs/mail.log
+```
+
+Для запуска Redis и Queue Worker:
+
+```bash
+docker compose up -d redis queue
+```
+
+Проверка состояния:
+
+```bash
+docker compose ps queue
+docker compose logs --tail=50 queue
+```
+
+Просмотр сформированных писем:
+
+```bash
+docker compose exec app tail -n 100 storage/logs/mail.log
+```
+
+### Отправка через SMTP
+
+Для включения настоящей отправки необходимо изменить `.env`:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_SCHEME=smtp
+MAIL_USERNAME=your-username
+MAIL_PASSWORD=your-password
+MAIL_FROM_ADDRESS=noreply@example.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+Параметры SMTP необходимо заменить на значения своего провайдера. Настройки шифрования и порт также зависят от провайдера.
+
+После изменения конфигурации:
+
+```bash
+docker compose exec app php artisan config:clear
+docker compose restart queue
+```
+
+Бизнес-логику приложения менять не требуется.
+
+### Retry и Failed Jobs
+
+Email-уведомления обрабатываются асинхронно с поддержкой повторных попыток.
+
+Конфигурация слушателей:
+
+- Максимальное количество попыток — 3.
+- Интервалы повторов — 10 и 30 секунд (третий интервал 60 секунд зарезервирован для возможной дополнительной попытки).
+- Очередь — `emails`.
+- Неуспешные задачи сохраняются в PostgreSQL (`failed_jobs`).
+
+Просмотр неуспешных задач:
+
+```bash
+docker compose exec app php artisan queue:failed
+```
+
+Повторный запуск конкретной задачи:
+
+```bash
+docker compose exec app php artisan queue:retry <uuid>
+```
+
+Удаление записи о неуспешной задаче:
+
+```bash
+docker compose exec app php artisan queue:forget <uuid>
+```
+
+Ошибки отправки обрабатываются worker и не должны изменять результат уже успешно выполненного бронирования.
+
+### Тестирование
+
+Для проверки email-уведомлений используются PHPUnit Feature-тесты и `Mail::fake()`.
+
+```bash
+docker compose exec app php artisan test \
+  --filter=BookingEmailNotificationTest
+```
+
+Полная проверка проекта:
+
+```bash
+docker compose exec app composer check
+```
+
+Тесты выполняются с `QUEUE_CONNECTION=sync` и `MAIL_MAILER=array`, не требуя реальной отправки email.
+
 ## Демонстрационные данные (Seeders)
 
 Для локальной разработки используются стандартные механизмы Laravel: **Factories** для генерации тестовых моделей и **Seeders** для наполнения базы данных.
@@ -252,7 +408,7 @@ docker compose exec app composer lint
 docker compose exec app composer check
 ```
 
-`composer check` последовательно запускает статический анализ, проверку стиля и тесты. Конфигурация PHPStan/Larastan — `phpstan.neon.dist` (уровень 6). PHPUnit в `phpunit.xml` использует SQLite in-memory для тестов.
+`composer check` последовательно запускает статический анализ, проверку стиля и тесты. Конфигурация PHPStan/Larastan — `phpstan.neon.dist` (уровень 6). PHPUnit использует отдельную PostgreSQL-базу booking_api_test. Конфигурация тестов принудительно задаётся в phpunit.xml. Для почты используется MAIL_MAILER=array, для очередей — QUEUE_CONNECTION=sync.
 
 В `.github/workflows/ci.yml` GitHub Actions запускает эти проверки на `push` и `pull_request` в `main` с PHP 8.4.
 
