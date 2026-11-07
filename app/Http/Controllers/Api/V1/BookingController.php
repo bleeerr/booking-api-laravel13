@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ApiErrorCode;
 use App\Enums\BookingStatus;
+use App\Events\BookingCancelled;
+use App\Events\BookingConfirmed;
+use App\Events\BookingCreated;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
@@ -119,6 +122,8 @@ class BookingController extends Controller
             'cancelled_at' => null,
         ]);
 
+        BookingCreated::dispatch($booking);
+
         return (new BookingResource($booking))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
@@ -153,6 +158,8 @@ class BookingController extends Controller
                 'cancelled_at' => CarbonImmutable::now('UTC'),
             ]);
 
+            BookingCancelled::dispatch($booking);
+
             return new BookingResource($booking);
         });
     }
@@ -177,6 +184,8 @@ class BookingController extends Controller
             $booking->update([
                 'status' => BookingStatus::Confirmed,
             ]);
+
+            BookingConfirmed::dispatch($booking);
 
             return new BookingResource($booking);
         });

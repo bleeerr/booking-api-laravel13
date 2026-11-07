@@ -59,6 +59,33 @@ services:
             retries: 10
         restart: unless-stopped
 
+    queue:
+        user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+            args:
+                LOCAL_UID: ${LOCAL_UID:-1000}
+                LOCAL_GID: ${LOCAL_GID:-1000}
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html
+        command: >
+            php artisan queue:work redis
+            --queue=emails
+            --sleep=3
+            --tries=3
+            --backoff=10
+            --timeout=60
+            --verbose
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        stop_grace_period: 1m
+        restart: unless-stopped
+
 volumes:
     postgres_data:
     redis_data:
